@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>محاكاة الحركة الجيبية المستقيمة</title>
+<style>
+:root{--bg:#f6f7fb;--card:#fff;--tx:#1d2433;--mu:#5d6679;--bd:#d9deea;--ac:#2563eb;--cx:#2563eb;--cv:#16a34a;--ca:#dc2626;--mass:#f59e0b;
+box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#10141d;--card:#1a2030;--tx:#e8ecf5;--mu:#9aa5bd;--bd:#2c3550;--ac:#60a5fa;--cx:#60a5fa;--cv:#4ade80;--ca:#f87171;--mass:#fbbf24}}
+:root[data-theme="dark"]{--bg:#10141d;--card:#1a2030;--tx:#e8ecf5;--mu:#9aa5bd;--bd:#2c3550;--ac:#60a5fa;--cx:#60a5fa;--cv:#4ade80;--ca:#f87171;--mass:#fbbf24}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--tx);font-family:Tahoma,"Segoe UI",Arial,sans-serif;line-height:1.6}
+.w{max-width:960px;margin:0 auto;padding:14px}
+h1{font-size:1.35rem;margin:6px 0 12px;text-align:center}
+.c{background:var(--card);border:1px solid var(--bd);border-radius:12px;padding:12px;margin-bottom:12px}
+canvas{width:100%;display:block}
+.g{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px}
+label{display:block;font-size:.9rem;color:var(--mu)}
+label b{color:var(--tx)}
+input[type=range]{width:100%;accent-color:var(--ac)}
+.b{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px;align-items:center}
+button{background:var(--ac);color:#fff;border:0;border-radius:8px;padding:8px 16px;font:inherit;cursor:pointer}
+button.s{background:transparent;color:var(--tx);border:1px solid var(--bd)}
+.eq{direction:ltr;text-align:center;font-family:"Times New Roman",serif;font-size:1.05rem;line-height:2}
+.eq span{white-space:nowrap}
+.r{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:8px;text-align:center}
+.r div{border:1px solid var(--bd);border-radius:8px;padding:6px;font-size:.9rem;color:var(--mu)}
+.r b{display:block;font-size:1.1rem;direction:ltr}
+.cx{color:var(--cx)}.cv{color:var(--cv)}.ca{color:var(--ca)}
+.n{font-size:.85rem;color:var(--mu)}
+</style>
+</head>
+<body>
+<div class="w">
+<h1>محاكاة الحركة الجيبية المستقيمة</h1>
+
+<div class="c"><canvas id="sim" height="190"></canvas>
+<div class="b">
+<button id="pp">⏸ إيقاف</button><button class="s" id="rs">↺ إعادة</button>
+<label><input type="checkbox" id="sv" checked> شعاع السرعة</label>
+<label><input type="checkbox" id="sa" checked> شعاع التسارع</label>
+</div></div>
+
+<div class="c"><div class="g">
+<label>السعة Xm = <b id="vX">6</b> cm<input type="range" id="X" min="1" max="10" step="0.5" value="6"></label>
+<label>الدور T = <b id="vT">2</b> s<input type="range" id="T" min="0.5" max="5" step="0.1" value="2"></label>
+<label>الطور الابتدائي φ = <b id="vP">0</b> °<input type="range" id="P" min="-180" max="180" step="5" value="0"></label>
+<label>سرعة العرض ×<b id="vS">1</b><input type="range" id="S" min="0.1" max="2" step="0.1" value="1"></label>
+</div></div>
+
+<div class="c"><div class="eq" id="eq"></div>
+<div class="r" style="margin-top:8px">
+<div>الزمن t<b id="rt">0</b></div>
+<div>الفاصلة x<b class="cx" id="rx">0</b></div>
+<div>السرعة v<b class="cv" id="rv">0</b></div>
+<div>التسارع a<b class="ca" id="ra">0</b></div>
+<div>التواتر f<b id="rf">0</b></div>
+<div>النبض ω<b id="rw">0</b></div>
+</div></div>
+
+<div class="c"><canvas id="gr" height="420"></canvas>
+<p class="n">كل منحنى مرسوم بسلّم خاص به (بين −القيمة العظمى و +القيمة العظمى). لاحظ: v متقدمة على x بربع دور، و a في تعاكس في الطور مع x.</p></div>
+</div>
+
+<script>
+(function(){
+var $=function(i){return document.getElementById(i)};
+var sim=$('sim'),gr=$('gr'),cs=sim.getContext('2d'),cg=gr.getContext('2d');
+var t=0,run=true,last=null,dpr=window.devicePixelRatio||1;
+var Xm=6,T=2,ph=0,sp=1;
+function col(n){return getComputedStyle(document.documentElement).getPropertyValue(n).trim()}
+function fit(c,h){var w=c.clientWidth;c.width=w*dpr;c.height=h*dpr;c.getContext('2d').setTransform(dpr,0,0,dpr,0,0);return w}
+var W1=0,W2=0;
+function resize(){W1=fit(sim,190);W2=fit(gr,420)}
+function st(){var w=2*Math.PI/T,p=ph*Math.PI/180,a=w*t+p;
+return{w:w,x:Xm*Math.cos(a),v:-Xm*w*Math.sin(a),a:-Xm*w*w*Math.cos(a)}}
+function txt(c,s,x,y,color,al,f){c.fillStyle=color;c.textAlign=al||'center';c.font=f||'12px Tahoma,Arial';c.fillText(s,x,y)}
+function arrow(c,x1,y,x2,color){if(Math.abs(x2-x1)<2)return;var d=x2>x1?1:-1;c.strokeStyle=color;c.fillStyle=color;c.lineWidth=3;
+c.beginPath();c.moveTo(x1,y);c.lineTo(x2,y);c.stroke();c.beginPath();c.moveTo(x2,y);c.lineTo(x2-9*d,y-6);c.lineTo(x2-9*d,y+6);c.closePath();c.fill()}
+function drawSim(s){
+var c=cs,W=W1,H=190,bd=col('--bd'),tx=col('--tx'),mu=col('--mu');
+c.clearRect(0,0,W,H);
+var wall=24,mid=W/2,sc=(W/2-70)/10,gy=120,mw=46,mh=40;
+var px=mid+s.x*sc;
+c.fillStyle=mu;c.fillRect(wall-8,gy-45,8,90);
+c.strokeStyle=bd;c.lineWidth=2;c.beginPath();c.moveTo(wall-8,gy+mh/2+2);c.lineTo(W-10,gy+mh/2+2);c.stroke();
+// spring
+var x0=wall,x1=px-mw/2,n=14,amp=11;
+c.strokeStyle=tx;c.lineWidth=2;c.beginPath();c.moveTo(x0,gy);
+var seg=(x1-x0-20)/n;c.lineTo(x0+10,gy);
+for(var i=0;i<n;i++){c.lineTo(x0+10+seg*(i+.5),gy+(i%2?amp:-amp));}
+c.lineTo(x1-10,gy);c.lineTo(x1,gy);c.stroke();
+// ruler
+c.strokeStyle=bd;c.lineWidth=1;
+for(var k=-10;k<=10;k++){var X=mid+k*sc,L=k%5==0?9:5;c.beginPath();c.moveTo(X,gy+mh/2+2);c.lineTo(X,gy+mh/2+2+L);c.stroke();
+if(k%5==0)txt(c,k,X,gy+mh/2+26,mu)}
+txt(c,'cm',W-22,gy+mh/2+26,mu);
+// equilibrium
+c.setLineDash([4,4]);c.strokeStyle=mu;c.beginPath();c.moveTo(mid,28);c.lineTo(mid,gy+mh/2+2);c.stroke();c.setLineDash([]);
+txt(c,'O (وضع التوازن)',mid,22,mu);
+// mass
+c.fillStyle=col('--mass');c.strokeStyle=tx;c.lineWidth=2;c.beginPath();c.rect(px-mw/2,gy-mh/2,mw,mh);c.fill();c.stroke();
+txt(c,'M',px,gy+5,'#222','center','bold 14px Arial');
+// x marker
+c.strokeStyle=col('--cx');c.lineWidth=2;c.beginPath();c.moveTo(mid,gy+mh/2+36);c.lineTo(px,gy+mh/2+36);c.stroke();
+// vectors
+if($('sv').checked){arrow(c,px,gy-mh/2-14,px+s.v*sc*0.5/ (Math.max(Xm*s.w,0.01)/Xm) ,col('--cv'));}
+if($('sa').checked){arrow(c,px,gy-mh/2-34,px+s.a*sc*0.5/(Math.max(Xm*s.w*s.w,0.01)/Xm),col('--ca'));}
+txt(c,'v',px+(s.v>=0?1:-1)*0+0,gy-mh/2-18,col('--cv'));
+}
+function drawGr(s){
+var c=cg,W=W2,H=420,bd=col('--bd'),mu=col('--mu');
+c.clearRect(0,0,W,H);
+var L=60,R=W-14,span=3*T,t0=t-span*0.8,rows=[
+{n:'x (cm)',c:'--cx',f:function(q){return Xm*Math.cos(2*Math.PI/T*q+ph*Math.PI/180)},m:Xm},
+{n:'v (cm/s)',c:'--cv',f:function(q){var w=2*Math.PI/T;return -Xm*w*Math.sin(w*q+ph*Math.PI/180)},m:Xm*2*Math.PI/T},
+{n:'a (cm/s²)',c:'--ca',f:function(q){var w=2*Math.PI/T;return -Xm*w*w*Math.cos(w*q+ph*Math.PI/180)},m:Xm*Math.pow(2*Math.PI/T,2)}];
+var rh=H/3,cur=L+(R-L)*0.8;
+rows.forEach(function(r,i){
+var cy=rh*i+rh/2,h=rh/2-14;
+c.strokeStyle=bd;c.lineWidth=1;c.beginPath();c.moveTo(L,cy);c.lineTo(R,cy);c.stroke();
+c.beginPath();c.moveTo(L,cy-h);c.lineTo(L,cy+h);c.stroke();
+c.setLineDash([3,4]);[-1,1].forEach(function(k){c.beginPath();c.moveTo(L,cy-k*h);c.lineTo(R,cy-k*h);c.stroke()});c.setLineDash([]);
+txt(c,r.m.toFixed(1),L-6,cy-h+4,mu,'right','11px Arial');txt(c,(-r.m).toFixed(1),L-6,cy+h+4,mu,'right','11px Arial');
+txt(c,r.n,14,cy,col(r.c),'center','bold 12px Arial');
+c.strokeStyle=col(r.c);c.lineWidth=2.2;c.beginPath();
+for(var px=L;px<=R;px+=2){var q=t0+(px-L)/(R-L)*span,y=cy-r.f(q)/r.m*h;px==L?c.moveTo(px,y):c.lineTo(px,y)}
+c.stroke();
+var yv=cy-r.f(t)/r.m*h;c.fillStyle=col(r.c);c.beginPath();c.arc(cur,yv,5,0,7);c.fill();
+});
+c.strokeStyle=mu;c.setLineDash([4,4]);c.beginPath();c.moveTo(cur,6);c.lineTo(cur,H-6);c.stroke();c.setLineDash([]);
+txt(c,'t (s)',R-14,H-2,mu,'center','11px Arial');
+}
+function info(s){
+$('rt').textContent=t.toFixed(2)+' s';$('rx').textContent=s.x.toFixed(2)+' cm';
+$('rv').textContent=s.v.toFixed(2)+' cm/s';$('ra').textContent=s.a.toFixed(2)+' cm/s²';
+$('rf').textContent=(1/T).toFixed(2)+' Hz';$('rw').textContent=s.w.toFixed(2)+' rad/s';
+}
+function eq(){var p=ph,sg=p<0?'−':'+',pa=Math.abs(p);
+$('eq').innerHTML='<span>x(t) = '+Xm+' cos( '+(2*Math.PI/T).toFixed(2)+' t '+sg+' '+pa+'° )</span><br><span>v(t) = dx/dt = −Xm·ω·sin(ωt+φ)</span> &nbsp;|&nbsp; <span>a(t) = d²x/dt² = −ω²·x</span>'}
+function frame(ts){
+if(last===null)last=ts;var dt=(ts-last)/1000;last=ts;
+if(run)t+=Math.min(dt,0.1)*sp;
+var s=st();drawSim(s);drawGr(s);info(s);requestAnimationFrame(frame)}
+function bind(id,out,fn){$(id).addEventListener('input',function(){var v=parseFloat(this.value);$(out).textContent=v;fn(v);eq()})}
+bind('X','vX',function(v){Xm=v});bind('T','vT',function(v){T=v});bind('P','vP',function(v){ph=v});bind('S','vS',function(v){sp=v});
+$('pp').onclick=function(){run=!run;this.textContent=run?'⏸ إيقاف':'▶ تشغيل'};
+$('rs').onclick=function(){t=0};
+window.addEventListener('resize',resize);
+resize();eq();requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>
